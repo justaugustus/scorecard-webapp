@@ -1,0 +1,157 @@
+swagger: '2.0'
+info:
+  title: OpenSSF Scorecard API
+  description: API to interact with a project's published Scorecard result
+  version: 1.0.0
+host: api.securityscorecards.dev
+schemes:
+  - http
+
+consumes:
+  - application/json
+produces:
+  - application/json
+
+x-google-backend:
+  address: https://scorecard-api-prod-x3pmld2cbq-uc.a.run.app
+  protocol: h2
+
+paths:
+  /projects/{platform}/{org}/{repo}:
+    parameters:
+      - in: path
+        name: platform
+        type: string
+        required: true
+        description: VCS platform. eg. github.com
+      - in: path
+        name: org
+        type: string
+        required: true
+        description: Name of the owner/organization of the repository
+      - in: path
+        name: repo
+        type: string
+        required: true
+        description: Name of the repository
+    get:
+      summary: Get a repository's ScorecardResult
+      operationId: getResult
+      parameters:
+        - in: query
+          name: commit
+          type: string
+          description: SHA256 commit hash expressed in hexadecimal format
+          pattern: '^[0-9a-fA-F]{64}$'
+      responses:
+        200:
+          description: A JSON object of the repository's ScorecardResult
+          schema:
+            $ref: '#/definitions/ScorecardResult'
+        400:
+          $ref: '#/responses/BadRequest'
+        404:
+          $ref: '#/responses/NotFound'
+        default:
+          $ref: '#/responses/InternalServerError'
+    post:
+      summary: Post to a repository's ScorecardResult
+      operationId: postResult
+      parameters:
+        - in: body
+          name: payload
+          required: true
+          schema:
+            $ref: '#/definitions/Payload'
+      responses:
+        201:
+          description: Successfully updated ScorecardResult
+          schema:
+            type: string
+        default:
+          $ref: '#/responses/InternalServerError'
+
+definitions:
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+
+  ScorecardResult:
+    type: object
+    properties:
+      date:
+        type: string
+      repo:
+        type: object
+        properties:
+          name:
+            type: string
+            description: respository that was analyzed
+          commit:
+            type: string
+            pattern: '^[0-9a-fA-F]{64}$'
+            description: SHA256 value of the analyzed commit expressed as hexadecimal
+      scorecard:
+        type: object
+        properties:
+          version:
+            type: string
+            description: Scorecard version used for this analysis
+          commit:
+            type: string
+            pattern: '^[0-9a-fA-F]{64}$'
+            description: SHA256 value of the Scorecard commit used for analysis
+      score:
+        type: integer
+        description: Aggregate score of the repository
+      checks:
+        type: array
+        items:
+          $ref: '#/definitions/ScorecardCheck'
+      metadata:
+        type: string
+
+  ScorecardCheck:
+    type: object
+    properties:
+      details:
+        type: array
+        items:
+          type: string
+      score:
+        type: integer
+      reason:
+        type: string
+      documentation:
+        type: object
+        properties:
+          url:
+            type: string
+          short:
+            type: string
+
+  Payload:
+    type: object
+    properties:
+      result:
+        type: string
+      branch:
+        type: string
+      accessToken:
+        type: string
+
+responses:
+  NotFound:
+    description: The content requested could not be found
+  BadRequest:
+    description: The request provided to the server was invalid
+    schema:
+      $ref: "#/definitions/Error"
+  InternalServerError:
+    description: There was an internal error in the server while processing the request
+    schema:
+      $ref: "#/definitions/Error"
